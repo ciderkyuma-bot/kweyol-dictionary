@@ -1,0 +1,13 @@
+﻿priority,english_regex,kweyol_replacement,note
+1,\bmy (\w+),\1 mwen,Possessive: My -> ... mwen
+1,\byour (\w+),\1 ou,Possessive: Your -> ... ou
+1,\bhis (\w+),\1 li,Possessive: His -> ... li
+1,\bher (\w+),\1 li,Possessive: Her -> ... li
+2,\bthe (\w+),\1 la,Article Swap: The X -> X la
+2,\bthis (\w+),\1 sala,Demonstrative: This X -> X sala
+3,\bi want (\w+),mwen vlé \1,Stative: want -> vlé (no ka)
+3,\bi love (\w+),mwen enmen \1,Stative: love -> enmen (no ka)
+3,\bi like (\w+),mwen enmen \1,Stative: like -> enmen (no ka)
+3,\bi think (\w+),mwen kwè \1,Stative: think -> kwè (no ka)
+3,\bi know (\w+),mwen sav \1,Stative: know -> sav (no ka)
+2,\bthe (\w+) (\w+),\2 \1 la,Adj Swap: The Adj Noun -> Noun Adj la

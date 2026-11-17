@@ -1,0 +1,6 @@
+streamlit
+pandas
+altair
+st-copy-to-clipboard
+qrcode
+requests

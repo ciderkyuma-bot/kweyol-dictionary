@@ -1,0 +1,24 @@
+# 忽略虛擬環境 (這是別人的電腦不需要的)
+.venv/
+venv/
+env/
+
+# 忽略 Python 編譯檔 (這是垃圾檔)
+__pycache__/
+*.pyc
+
+# 忽略本地的大型 AI 模型 (雲端會自己下載)
+local_model/
+models/
+*.bin
+*.pt
+*.pth
+
+# 忽略個人的 IDE 設定
+.vscode/
+.idea/
+
+# 如果你有很巨大的暫存檔
+*.tmp
+model_files/
+.DS_Store

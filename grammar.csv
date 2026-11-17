@@ -1,0 +1,64 @@
+﻿type,english,kweyol,priority
+pronoun,i,mwen,1
+pronoun,you,ou,1
+pronoun,he,i,1
+pronoun,she,i,1
+pronoun,it,i,1
+pronoun,we,nou,1
+pronoun,they,yo,1
+pronoun,my,mwen,2
+pronoun,your,ou,2
+pronoun,his,li,2
+pronoun,her,li,2
+pronoun,its,li,2
+pronoun,our,nou,2
+pronoun,their,yo,2
+negation,will not,pa kay,1
+negation,won't,pa kay,1
+negation,do not,pa,1
+negation,don't,pa,1
+negation,does not,pa,1
+negation,doesn't,pa,1
+negation,did not,pa té,1
+negation,didn't,pa té,1
+negation,never,janmen,1
+tense,will,kay,3
+tense,going to,kay,3
+tense,was,té,3
+tense,were,té,3
+tense,have done,ja,2
+tense,has done,ja,2
+tense,had done,té,2
+tense,had finished,té fini,1
+tense,used to,té ka,1
+tense,would have,té kay,1
+tense,could have,té sa,1
+tense,am,ka,3
+tense,is,ka,3
+tense,are,ka,3
+verb,is,sé,4
+verb,am,sé,4
+verb,are,sé,4
+keyword,and,èk,4
+keyword,the,la,4
+keyword,a,an,4
+keyword,an,an,4
+pronoun,mine,san mwen,2
+pronoun,yours,sa ou,2
+pronoun,his,sa li,2
+pronoun,hers,sa li,2
+pronoun,ours,san nou,2
+pronoun,theirs,sa yo,2
+type,english,kweyol,priority
+tense,i'll,mwen kay,0
+tense,i’ll,mwen kay,0
+tense,you'll,ou kay,0
+tense,you’ll,ou kay,0
+tense,he'll,i kay,0
+tense,he’ll,i kay,0
+tense,she'll,i kay,0
+tense,she’ll,i kay,0
+tense,we'll,nou kay,0
+tense,we’ll,nou kay,0
+tense,they'll,yo kay,0
+tense,they’ll,yo kay,0
