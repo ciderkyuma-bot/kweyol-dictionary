@@ -328,7 +328,7 @@ with tab1:
                             <div style="font-size:1.6rem; font-weight:700; color:#5d4037;">{html.escape(kweyol)}</div>
                             {source_badge}
                         </div>''', unsafe_allow_html=True)
-                        st_copy_to_clipboard(f"{header_text}\nTranslation: {kweyol}", before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_e2k_{i}")
+                        st_copy_to_clipboard(kweyol, before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_e2k_{i}")
                         tts_button(kweyol, btn_key=f"tts_e2k_{i}")
                     else:
                         kw_word = res.get('Kweyol word', '')
@@ -348,7 +348,7 @@ with tab1:
                             </div>
                             {source_badge}
                         </div>''', unsafe_allow_html=True)
-                        st_copy_to_clipboard(f"{header_text}\nDefinition: {definition}\nEx: {kwe_ex}", before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_k2e_{i}")
+                        st_copy_to_clipboard(kw_word, before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_k2e_{i}")
                         tts_button(kw_word, btn_key=f"tts_k2e_{i}")
             else:
                 st.info("No results found. Try Fuzzy mode.")
@@ -376,7 +376,7 @@ with tab2:
                     <p style="font-size: 1.1rem; color: #6d5e58;">{html.escape(ex['english'])}</p>
                     {source_badge}
                 </div>""", unsafe_allow_html=True)
-                st_copy_to_clipboard(f"{ex['kweyol']}\n{ex['english']}", before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_phr_{i}")
+                st_copy_to_clipboard(ex['kweyol'], before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_phr_{i}")
                 tts_button(ex['kweyol'], btn_key=f"tts_phr_{i}")
         else:
             st.info("No examples found.")
