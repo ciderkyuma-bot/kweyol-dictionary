@@ -198,15 +198,35 @@ def tts_button(text: str, btn_key: str):
             st.warning("⚠️ 發音模型尚未就緒，請確認 torch 與 transformers 已安裝")
 
 def english_tts_button(text: str, btn_key: str):
-    """英文發音按鈕，使用瀏覽器內建 Web Speech API（即時無需模型）"""
-    import streamlit.components.v1 as components
-    safe = text.replace("'", "\\'").replace('"', '\\"').replace('\n', ' ')
-    if st.button("🔊 English", key=btn_key, help=f"Pronounce in English: {text}"):
+    """英文發音按鈕，使用瀏覽器父視窗的 Web Speech API 以取得最佳音質"""
+    import re, streamlit.components.v1 as components
+    # 移除詞性標記如 (n.) (v.) 等，避免唸出括號內容
+    clean = re.sub(r'\([^)]*\)', '', text).strip()
+    # 只取第一個語意段（斜線前或逗號前）避免讀一大串
+    clean = re.split(r'[/;]', clean)[0].strip()
+    safe = clean.replace("'", "\\'").replace('"', '\\"').replace('\n', ' ')
+
+    if st.button("🔊 English", key=btn_key, help=f"Pronounce: {clean}"):
         components.html(f"""
         <script>
-            var u = new SpeechSynthesisUtterance("{safe}");
-            u.lang = 'en-US';
-            window.speechSynthesis.speak(u);
+        (function() {{
+            var synth = window.parent.speechSynthesis;
+            synth.cancel();
+            function speak() {{
+                var u = new SpeechSynthesisUtterance('{safe}');
+                u.lang  = 'en-US';
+                u.rate  = 0.88;
+                u.pitch = 1.0;
+                var voices = synth.getVoices();
+                var v = voices.find(x => x.lang === 'en-US' && x.localService) ||
+                        voices.find(x => x.lang === 'en-US') ||
+                        voices.find(x => x.lang.startsWith('en-'));
+                if (v) u.voice = v;
+                synth.speak(u);
+            }}
+            if (synth.getVoices().length > 0) {{ speak(); }}
+            else {{ synth.onvoiceschanged = speak; }}
+        }})();
         </script>
         """, height=0)
 
