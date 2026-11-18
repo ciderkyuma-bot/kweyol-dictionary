@@ -458,8 +458,8 @@ with tab1:
                         # 取得替代詞
                         alts = get_alternatives_e2k(word, kweyol, pos, databases.get('e2k_data', pd.DataFrame()))
                         
-                        match_type = "Exact match" if search_mode == "Exact" or word.lower() == search_word.strip().lower() else "Contains your input"
-                        match_pct = "100%" if match_type == "Exact match" else "86%"
+                        match_type = res.get('match_type') or ("Exact match" if search_mode == "Exact" or word.lower().strip() == search_word.strip().lower() else "Contains your input")
+                        match_pct = res.get('match_pct') or ("100%" if match_type == "Exact match" else "86%")
 
                         alt_html = ""
                         if alts:
@@ -484,8 +484,8 @@ with tab1:
                         
                         alts = get_alternatives_k2e(kw_word, definition, pos, databases.get('k2e_data', pd.DataFrame()))
 
-                        match_type = "Exact match" if search_mode == "Exact" or kw_word.lower() == search_word.strip().lower() else "Contains your input"
-                        match_pct = "100%" if match_type == "Exact match" else "88%"
+                        match_type = res.get('match_type') or ("Exact match" if search_mode == "Exact" or kw_word.lower().strip() == search_word.strip().lower() else "Contains your input")
+                        match_pct = res.get('match_pct') or ("100%" if match_type == "Exact match" else "88%")
 
                         alt_html = ""
                         if alts:

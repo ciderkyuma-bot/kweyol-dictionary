@@ -95,12 +95,63 @@ def get_clean_pos(raw_text):
 def fast_query(word, mode, direction, databases):
     if not word: return []
     clean_search = normalize_text(word)
-    if direction == "English → Kwéyòl": df = databases['e2k_data']; col = 'english'
-    else: df = databases['k2e_data']; col = 'Kweyol word'
+    if direction == "English → Kwéyòl": 
+        df = databases['e2k_data']
+        col = 'english'
+    else: 
+        df = databases['k2e_data']
+        col = 'Kweyol word'
     if df.empty: return []
+
     search_col = df[col].astype(str).apply(normalize_text)
-    if mode == 'exact': matches = df[search_col == clean_search]
-    else: matches = df[search_col.str.contains(clean_search, regex=False)]
+    
+    if mode == 'exact':
+        matches = df[search_col == clean_search].copy()
+        if not matches.empty:
+            matches['match_score'] = 1.0
+            matches['match_pct'] = "100%"
+            matches['match_type'] = "Exact match"
+    else:
+        # Fuzzy / Contains mode
+        cond = search_col.str.contains(clean_search, regex=False)
+        matches = df[cond].copy()
+        if matches.empty:
+            # If substring not found, try fuzzy match across top candidates
+            import difflib
+            ratios = search_col.apply(lambda x: difflib.SequenceMatcher(None, clean_search, x).ratio())
+            matches = df[ratios >= 0.65].copy()
+            if not matches.empty:
+                matches['match_score'] = ratios[ratios >= 0.65]
+            else:
+                matches['match_score'] = 0.0
+        else:
+            def calculate_relevance(val):
+                v = str(val).lower().strip()
+                v_clean = normalize_text(v)
+                if v_clean == clean_search:
+                    return 1.0, "Exact match", "100%"
+                words = v_clean.split()
+                if clean_search in words:
+                    # Whole word match, slightly penalized by total length
+                    score = 0.95 - min(0.08, (len(v_clean) - len(clean_search)) * 0.005)
+                    return score, "Contains your input", f"{int(score * 100)}%"
+                if clean_search in v_clean:
+                    score = 0.86 - min(0.15, (len(v_clean) - len(clean_search)) * 0.008)
+                    return score, "Contains your input", f"{int(score * 100)}%"
+                import difflib
+                sim = difflib.SequenceMatcher(None, clean_search, v_clean).ratio()
+                score = sim * 0.8
+                return score, "Similar match", f"{int(score * 100)}%"
+
+            metrics = [calculate_relevance(val) for val in matches[col]]
+            matches['match_score'] = [m[0] for m in metrics]
+            matches['match_type'] = [m[1] for m in metrics]
+            matches['match_pct'] = [m[2] for m in metrics]
+
+    if not matches.empty and 'match_score' in matches.columns:
+        # Sort descending so 100% / highest matches are always at the top
+        matches = matches.sort_values(by='match_score', ascending=False)
+        
     return matches.to_dict('records')
 
 def search_examples(query, databases):
