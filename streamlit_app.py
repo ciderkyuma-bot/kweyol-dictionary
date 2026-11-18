@@ -189,13 +189,26 @@ def generate_kweyol_audio(text: str):
 
 def tts_button(text: str, btn_key: str):
     """顯示 🔊 發音按鈕，點擊後自動直接播放發音"""
-    if st.button("🔊 發音", key=btn_key, help=f"播放克里奧語發音：{text}"):
+    if st.button("🔊 Kwéyòl", key=btn_key, help=f"播放克里奧語發音：{text}"):
         with st.spinner("產生發音中..."):
             audio_bytes = generate_kweyol_audio(text)
         if audio_bytes:
             st.audio(audio_bytes, format="audio/wav", autoplay=True)
         else:
             st.warning("⚠️ 發音模型尚未就緒，請確認 torch 與 transformers 已安裝")
+
+def english_tts_button(text: str, btn_key: str):
+    """英文發音按鈕，使用瀏覽器內建 Web Speech API（即時無需模型）"""
+    import streamlit.components.v1 as components
+    safe = text.replace("'", "\\'").replace('"', '\\"').replace('\n', ' ')
+    if st.button("🔊 English", key=btn_key, help=f"Pronounce in English: {text}"):
+        components.html(f"""
+        <script>
+            var u = new SpeechSynthesisUtterance("{safe}");
+            u.lang = 'en-US';
+            window.speechSynthesis.speak(u);
+        </script>
+        """, height=0)
 
 # [核心] 載入資料庫
 if 'databases' not in st.session_state:
@@ -270,31 +283,42 @@ with tab1:
     
     if 'wotd' not in st.session_state:
         try:
-            candidates = [entry for entry in databases['k2e_data'] if entry.get('Kweyol_Example')]
-            if candidates: st.session_state['wotd'] = random.choice(candidates)
-            else: st.session_state['wotd'] = None
-        except: st.session_state['wotd'] = None
+            df_k2e = databases['k2e_data']
+            if not df_k2e.empty:
+                candidates = df_k2e[df_k2e['Kweyol_Example'].astype(str).str.strip() != ''].to_dict('records')
+                st.session_state['wotd'] = random.choice(candidates) if candidates else None
+            else:
+                st.session_state['wotd'] = None
+        except:
+            st.session_state['wotd'] = None
 
     wotd = st.session_state.get('wotd')
     if wotd:
-        with st.expander("✨ Word of the Day (Click to expand)", expanded=True):
-            w_word = wotd.get('Kweyol word', 'Bonjou')
-            w_pos = wotd.get('pos', '')
-            w_def = wotd.get('Definition', '')
-            w_ex_k = wotd.get('Kweyol_Example', '')
-            w_ex_e = wotd.get('English_Example', '')
-            
-            st.markdown(f"""
-            <div style="display: flex; align-items: baseline;">
-                <h3 style="margin: 0; color: #8d6e63;">{w_word}</h3>
-                <span style="margin-left: 10px; color: #888; font-style: italic;">({w_pos})</span>
+        w_word = wotd.get('Kweyol word', 'Bonjou')
+        w_pos  = wotd.get('pos', '').strip()
+        w_def  = wotd.get('Definition', '')
+        w_ex_k = wotd.get('Kweyol_Example', '')
+        w_ex_e = wotd.get('English_Example', '')
+
+        st.markdown(f"""
+        <div style="background:#fff; border:1px solid #e8e0d5; border-radius:12px;
+                    padding:24px 28px; margin-bottom:24px; border-left:5px solid #aebf9e;
+                    box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+            <div style="font-size:0.72rem; font-weight:700; letter-spacing:2px;
+                        color:#999; text-transform:uppercase; margin-bottom:10px;">
+                WORD OF THE DAY
             </div>
-            <p style="font-size: 1.1rem; margin-top: 5px;">{w_def}</p>
-            <div style="background-color: #fcfbf9; padding: 10px; border-radius: 8px; border-left: 3px solid #aebf9e;">
-                <div style="color: #2e7d32; font-weight: 600;">{w_ex_k}</div>
-                <div style="color: #666;">{w_ex_e}</div>
+            <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:6px;">
+                <span style="font-size:1.9rem; font-weight:800; color:#2e7d32;">{html.escape(w_word)}</span>
+                <span style="font-size:0.95rem; color:#999; font-style:italic;">{html.escape(w_pos)}</span>
             </div>
-            """, unsafe_allow_html=True)
+            <div style="font-size:1.05rem; color:#333; margin-bottom:14px;">{html.escape(w_def)}</div>
+            <div style="border-left:4px solid #aebf9e; padding:10px 16px; background:#f8faf8; border-radius:0 8px 8px 0;">
+                <div style="color:#2e7d32; font-weight:700; margin-bottom:4px;">{html.escape(w_ex_k)}</div>
+                <div style="color:#777; font-size:0.95rem;">{html.escape(w_ex_e)}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.markdown("---")
 
@@ -348,8 +372,12 @@ with tab1:
                             </div>
                             {source_badge}
                         </div>''', unsafe_allow_html=True)
-                        st_copy_to_clipboard(kw_word, before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_k2e_{i}")
-                        tts_button(kw_word, btn_key=f"tts_k2e_{i}")
+                        st_copy_to_clipboard(definition, before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_k2e_{i}")
+                        col_tts_kw, col_tts_en = st.columns([1, 1])
+                        with col_tts_kw:
+                            tts_button(kw_word, btn_key=f"tts_k2e_{i}")
+                        with col_tts_en:
+                            english_tts_button(definition, btn_key=f"tts_en_{i}")
             else:
                 st.info("No results found. Try Fuzzy mode.")
 
