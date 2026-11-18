@@ -48,11 +48,16 @@ p, div, label, span { color: #333333; }
     background-color: #efebe9; border-color: #8d6e63; color: #2c2c2c !important; transform: translateY(-1px);
 }
 
-/* 4. 複製按鈕特別樣式 */
-div.stButton > button:contains("Copy") {
-    font-size: 0.85rem !important; padding: 0.3rem 0.8rem !important;
-    background-color: #f4f0ea !important; color: #8c7b75 !important;
-    border: 1px solid #e0dcd0 !important; height: auto !important; margin-top: -10px; 
+/* 4. 按鈕列樣式統一 */
+div.stButton > button {
+    font-size: 0.9rem !important;
+    padding: 0.35rem 0.8rem !important;
+    height: 38px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    margin-top: 0px !important;
 }
 
 /* 5. 輸入框優化 */
@@ -198,37 +203,26 @@ def tts_button(text: str, btn_key: str):
             st.warning("⚠️ 發音模型尚未就緒，請確認 torch 與 transformers 已安裝")
 
 def english_tts_button(text: str, btn_key: str):
-    """英文發音按鈕，使用瀏覽器父視窗的 Web Speech API 以取得最佳音質"""
-    import re, streamlit.components.v1 as components
+    """英文發音按鈕，使用 Google TTS (gTTS) 產生清晰自然的標準英文發音"""
+    import re
+    from gtts import gTTS
     # 移除詞性標記如 (n.) (v.) 等，避免唸出括號內容
     clean = re.sub(r'\([^)]*\)', '', text).strip()
     # 只取第一個語意段（斜線前或逗號前）避免讀一大串
     clean = re.split(r'[/;]', clean)[0].strip()
-    safe = clean.replace("'", "\\'").replace('"', '\\"').replace('\n', ' ')
+    if not clean:
+        clean = text.strip()
 
     if st.button("🔊 English", key=btn_key, help=f"Pronounce: {clean}"):
-        components.html(f"""
-        <script>
-        (function() {{
-            var synth = window.parent.speechSynthesis;
-            synth.cancel();
-            function speak() {{
-                var u = new SpeechSynthesisUtterance('{safe}');
-                u.lang  = 'en-US';
-                u.rate  = 0.88;
-                u.pitch = 1.0;
-                var voices = synth.getVoices();
-                var v = voices.find(x => x.lang === 'en-US' && x.localService) ||
-                        voices.find(x => x.lang === 'en-US') ||
-                        voices.find(x => x.lang.startsWith('en-'));
-                if (v) u.voice = v;
-                synth.speak(u);
-            }}
-            if (synth.getVoices().length > 0) {{ speak(); }}
-            else {{ synth.onvoiceschanged = speak; }}
-        }})();
-        </script>
-        """, height=0)
+        with st.spinner("產生英文發音..."):
+            try:
+                fp = BytesIO()
+                tts = gTTS(text=clean, lang='en', tld='com')
+                tts.write_to_fp(fp)
+                fp.seek(0)
+                st.audio(fp.read(), format="audio/mp3", autoplay=True)
+            except Exception as e:
+                st.error("發音產生失敗，請確認網路連線")
 
 # [核心] 載入資料庫
 if 'databases' not in st.session_state:
@@ -372,8 +366,13 @@ with tab1:
                             <div style="font-size:1.6rem; font-weight:700; color:#5d4037;">{html.escape(kweyol)}</div>
                             {source_badge}
                         </div>''', unsafe_allow_html=True)
-                        st_copy_to_clipboard(kweyol, before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_e2k_{i}")
-                        tts_button(kweyol, btn_key=f"tts_e2k_{i}")
+                        b_col1, b_col2, b_col3 = st.columns([1, 1, 1])
+                        with b_col1:
+                            st_copy_to_clipboard(kweyol, before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_e2k_{i}")
+                        with b_col2:
+                            tts_button(kweyol, btn_key=f"tts_e2k_{i}")
+                        with b_col3:
+                            english_tts_button(word, btn_key=f"tts_e2k_en_{i}")
                     else:
                         kw_word = res.get('Kweyol word', '')
                         pos = res.get('pos', '').strip()
@@ -392,11 +391,12 @@ with tab1:
                             </div>
                             {source_badge}
                         </div>''', unsafe_allow_html=True)
-                        st_copy_to_clipboard(definition, before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_k2e_{i}")
-                        col_tts_kw, col_tts_en = st.columns([1, 1])
-                        with col_tts_kw:
+                        b_col1, b_col2, b_col3 = st.columns([1, 1, 1])
+                        with b_col1:
+                            st_copy_to_clipboard(definition, before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_k2e_{i}")
+                        with b_col2:
                             tts_button(kw_word, btn_key=f"tts_k2e_{i}")
-                        with col_tts_en:
+                        with b_col3:
                             english_tts_button(definition, btn_key=f"tts_en_{i}")
             else:
                 st.info("No results found. Try Fuzzy mode.")
@@ -424,8 +424,13 @@ with tab2:
                     <p style="font-size: 1.1rem; color: #6d5e58;">{html.escape(ex['english'])}</p>
                     {source_badge}
                 </div>""", unsafe_allow_html=True)
-                st_copy_to_clipboard(ex['kweyol'], before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_phr_{i}")
-                tts_button(ex['kweyol'], btn_key=f"tts_phr_{i}")
+                b_col1, b_col2, b_col3 = st.columns([1, 1, 1])
+                with b_col1:
+                    st_copy_to_clipboard(ex['kweyol'], before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_phr_{i}")
+                with b_col2:
+                    tts_button(ex['kweyol'], btn_key=f"tts_phr_{i}")
+                with b_col3:
+                    english_tts_button(ex['english'], btn_key=f"tts_phr_en_{i}")
         else:
             st.info("No examples found.")
 
