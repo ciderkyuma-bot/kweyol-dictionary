@@ -273,6 +273,53 @@ def english_tts_button(text: str, btn_key: str):
             except Exception as e:
                 st.error("Audio generation failed. Please check internet connection.")
 
+def get_alternatives_e2k(target_word, target_kweyol, pos, df_e2k):
+    """Find smart alternative words for English -> Kweyol search"""
+    cands = []
+    # 1. Related entries containing the search word
+    if not df_e2k.empty and 'english' in df_e2k.columns:
+        related = df_e2k[df_e2k['english'].astype(str).str.contains(target_word, case=False, na=False) & (df_e2k['english'].astype(str).str.lower() != target_word.lower())]
+        cands.extend(related['Kweyol'].dropna().tolist())
+        # 2. If fewer than 4, pull from same POS category
+        if len(cands) < 4 and pos and pd.notna(pos) and str(pos).strip():
+            same_pos = df_e2k[(df_e2k['pos'] == pos) & (df_e2k['english'].astype(str).str.lower() != target_word.lower())]
+            cands.extend(same_pos['Kweyol'].dropna().head(20).tolist())
+    
+    seen = {target_kweyol.lower().strip()}
+    alts = []
+    for c in cands:
+        for p in str(c).split(','):
+            item = p.strip().rstrip('.')
+            if item and item.lower() not in seen and len(item) > 1:
+                seen.add(item.lower())
+                alts.append(item)
+                if len(alts) >= 4:
+                    return alts
+    return alts
+
+def get_alternatives_k2e(target_word, definition, pos, df_k2e):
+    """Find smart alternative definitions for Kweyol -> English search"""
+    cands = []
+    if not df_k2e.empty and 'Kweyol word' in df_k2e.columns:
+        # Related containing the keyword
+        related = df_k2e[df_k2e['Kweyol word'].astype(str).str.contains(target_word, case=False, na=False) & (df_k2e['Kweyol word'].astype(str).str.lower() != target_word.lower())]
+        cands.extend(related['Definition'].dropna().tolist())
+        if len(cands) < 4 and pos and pd.notna(pos):
+            same_pos = df_k2e[(df_k2e['pos'] == pos) & (df_k2e['Kweyol word'].astype(str).str.lower() != target_word.lower())]
+            cands.extend(same_pos['Definition'].dropna().head(20).tolist())
+            
+    seen = {definition.lower().strip()}
+    alts = []
+    for c in cands:
+        for p in str(c).split('/'):
+            item = p.strip().rstrip('.')
+            if item and item.lower() not in seen and len(item) > 1:
+                seen.add(item.lower())
+                alts.append(item)
+                if len(alts) >= 4:
+                    return alts
+    return alts
+
 # [核心] 載入資料庫
 if 'databases' not in st.session_state:
     st.session_state.databases = load_databases()
@@ -408,15 +455,8 @@ with tab1:
                         pos = res.get('pos', '').strip()
                         kweyol = res.get('Kweyol', '')
                         
-                        # 同義/替換詞收集（從結果中抓取其他匹配單字）
-                        other_matches = [r.get('Kweyol', '').strip() for r in results if r.get('Kweyol', '').strip() != kweyol and r.get('Kweyol', '').strip() != '']
-                        # 去重並保留前 4 個
-                        seen = set()
-                        alts = []
-                        for m in other_matches:
-                            if m not in seen and len(alts) < 4:
-                                seen.add(m)
-                                alts.append(m)
+                        # 取得替代詞
+                        alts = get_alternatives_e2k(word, kweyol, pos, databases.get('e2k_data', pd.DataFrame()))
                         
                         match_type = "Exact match" if search_mode == "Exact" or word.lower() == search_word.strip().lower() else "Contains your input"
                         match_pct = "100%" if match_type == "Exact match" else "86%"
@@ -424,20 +464,10 @@ with tab1:
                         alt_html = ""
                         if alts:
                             pills = "".join([f'<span class="alternative-item">{html.escape(a)}</span>' for a in alts])
-                            alt_html = f'''
-                            <div class="alternative-list">
-                                <div class="alternative-title">Alternatives</div>
-                                {pills}
-                            </div>'''
+                            alt_html = f'''<div class="alternative-list"><div class="alternative-title">Alternatives</div>{pills}</div>'''
 
-                        st.markdown(f'''
-                        <div class="result-card">
-                            <div class="card-main-title">{html.escape(kweyol)}</div>
-                            <div class="card-category">{html.escape(pos if pos else "General")}</div>
-                            <div class="card-matched-info">Matched: <b>{html.escape(word)}</b> · {match_type} · {match_pct}</div>
-                            {alt_html}
-                            <div class="card-footer-meta">Best match from {len(results)} result(s)</div>
-                        </div>''', unsafe_allow_html=True)
+                        card_content = f'''<div class="result-card"><div class="card-main-title">{html.escape(kweyol)}</div><div class="card-category">{html.escape(pos if pos else "General")}</div><div class="card-matched-info">Matched: <b>{html.escape(word)}</b> · {match_type} · {match_pct}</div>{alt_html}<div class="card-footer-meta">Best match from {len(results)} result(s)</div></div>'''
+                        st.markdown(card_content, unsafe_allow_html=True)
                         b_col1, b_col2, b_col3 = st.columns([1, 1, 1])
                         with b_col1:
                             st_copy_to_clipboard(kweyol, before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_e2k_{i}")
@@ -452,14 +482,7 @@ with tab1:
                         eng_ex = res.get('English_Example', '')
                         kwe_ex = res.get('Kweyol_Example', '')
                         
-                        other_matches = [r.get('Definition', '').strip() for r in results if r.get('Definition', '').strip() != definition and r.get('Definition', '').strip() != '']
-                        seen = set()
-                        alts = []
-                        for m in other_matches:
-                            short_m = m.split('/')[0].strip()
-                            if short_m and short_m not in seen and len(alts) < 4:
-                                seen.add(short_m)
-                                alts.append(short_m)
+                        alts = get_alternatives_k2e(kw_word, definition, pos, databases.get('k2e_data', pd.DataFrame()))
 
                         match_type = "Exact match" if search_mode == "Exact" or kw_word.lower() == search_word.strip().lower() else "Contains your input"
                         match_pct = "100%" if match_type == "Exact match" else "88%"
@@ -467,29 +490,14 @@ with tab1:
                         alt_html = ""
                         if alts:
                             pills = "".join([f'<span class="alternative-item">{html.escape(a)}</span>' for a in alts])
-                            alt_html = f'''
-                            <div class="alternative-list">
-                                <div class="alternative-title">Alternatives</div>
-                                {pills}
-                            </div>'''
+                            alt_html = f'''<div class="alternative-list"><div class="alternative-title">Alternatives</div>{pills}</div>'''
 
                         ex_html = ""
                         if kwe_ex or eng_ex:
-                            ex_html = f'''
-                            <div style="margin-top: 10px; padding: 10px 14px; background: #fbfbf9; border-radius: 6px; border-left: 3px solid #aebf9e;">
-                                <div style="color: #2e7d32; font-weight: 600; font-size: 0.95rem;">{html.escape(kwe_ex)}</div>
-                                <div style="color: #666; font-size: 0.9rem;">{html.escape(eng_ex)}</div>
-                            </div>'''
+                            ex_html = f'''<div style="margin-top: 10px; padding: 10px 14px; background: #fbfbf9; border-radius: 6px; border-left: 3px solid #aebf9e;"><div style="color: #2e7d32; font-weight: 600; font-size: 0.95rem;">{html.escape(kwe_ex)}</div><div style="color: #666; font-size: 0.9rem;">{html.escape(eng_ex)}</div></div>'''
 
-                        st.markdown(f'''
-                        <div class="result-card">
-                            <div class="card-main-title">{html.escape(kw_word)}</div>
-                            <div class="card-category">{html.escape(definition if definition else pos)}</div>
-                            <div class="card-matched-info">Matched: <b>{html.escape(kw_word)}</b> · {match_type} · {match_pct}</div>
-                            {ex_html}
-                            {alt_html}
-                            <div class="card-footer-meta">Best match from {len(results)} result(s)</div>
-                        </div>''', unsafe_allow_html=True)
+                        card_content = f'''<div class="result-card"><div class="card-main-title">{html.escape(kw_word)}</div><div class="card-category">{html.escape(definition if definition else pos)}</div><div class="card-matched-info">Matched: <b>{html.escape(kw_word)}</b> · {match_type} · {match_pct}</div>{ex_html}{alt_html}<div class="card-footer-meta">Best match from {len(results)} result(s)</div></div>'''
+                        st.markdown(card_content, unsafe_allow_html=True)
                         b_col1, b_col2, b_col3 = st.columns([1, 1, 1])
                         with b_col1:
                             st_copy_to_clipboard(definition, before_copy_label="📋 Copy", after_copy_label="✅ Copied!", key=f"copy_k2e_{i}")
