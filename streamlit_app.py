@@ -193,28 +193,28 @@ def generate_kweyol_audio(text: str):
         return None
 
 def tts_button(text: str, btn_key: str):
-    """顯示 🔊 發音按鈕，點擊後自動直接播放發音"""
-    if st.button("🔊 Kwéyòl", key=btn_key, help=f"播放克里奧語發音：{text}"):
-        with st.spinner("產生發音中..."):
+    """Play Kwéyòl pronunciation with audio synthesis"""
+    if st.button("🔊 Kwéyòl", key=btn_key, help=f"Listen in Kwéyòl: {text}"):
+        with st.spinner("Generating Kwéyòl audio..."):
             audio_bytes = generate_kweyol_audio(text)
         if audio_bytes:
             st.audio(audio_bytes, format="audio/wav", autoplay=True)
         else:
-            st.warning("⚠️ 發音模型尚未就緒，請確認 torch 與 transformers 已安裝")
+            st.warning("⚠️ Pronunciation model is not ready. Please verify torch and transformers.")
 
 def english_tts_button(text: str, btn_key: str):
-    """英文發音按鈕，使用 Google TTS (gTTS) 產生清晰自然的標準英文發音"""
+    """Play English pronunciation via Google TTS (gTTS)"""
     import re
     from gtts import gTTS
-    # 移除詞性標記如 (n.) (v.) 等，避免唸出括號內容
+    # Remove part-of-speech tags like (n.) (v.) etc.
     clean = re.sub(r'\([^)]*\)', '', text).strip()
-    # 只取第一個語意段（斜線前或逗號前）避免讀一大串
+    # Take first semantic segment before slash or semicolon
     clean = re.split(r'[/;]', clean)[0].strip()
     if not clean:
         clean = text.strip()
 
-    if st.button("🔊 English", key=btn_key, help=f"Pronounce: {clean}"):
-        with st.spinner("產生英文發音..."):
+    if st.button("🔊 English", key=btn_key, help=f"Listen in English: {clean}"):
+        with st.spinner("Generating English audio..."):
             try:
                 fp = BytesIO()
                 tts = gTTS(text=clean, lang='en', tld='com')
@@ -222,7 +222,7 @@ def english_tts_button(text: str, btn_key: str):
                 fp.seek(0)
                 st.audio(fp.read(), format="audio/mp3", autoplay=True)
             except Exception as e:
-                st.error("發音產生失敗，請確認網路連線")
+                st.error("Audio generation failed. Please check internet connection.")
 
 # [核心] 載入資料庫
 if 'databases' not in st.session_state:
