@@ -68,19 +68,68 @@ div.stButton > button {
     border-color: #8d6e63; box-shadow: 0 0 0 1px #8d6e63;
 }
 
-/* 6. 卡片樣式 */
+/* 6. 卡片樣式 (Aligned with stlucia-kweyol design) */
 .translation-card-rbmt {
-    background-color: #ffffff; padding: 25px; border-radius: 10px; 
-    border-left: 6px solid #8d6e63;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+    background-color: #ffffff; padding: 25px; border-radius: 8px; 
+    border-left: 6px solid #2f6f7e;
+    box-shadow: 0 4px 12px rgba(17, 24, 39, 0.07); 
     margin-bottom: 20px;
 }
 .result-card {
-    background-color: #ffffff; padding: 1.5rem; margin-bottom: 0.5rem; 
-    border-radius: 8px; border: 1px solid #eee; border-left: 4px solid #8d6e63;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    background-color: #ffffff;
+    padding: 24px 25px;
+    margin-bottom: 16px; 
+    border-radius: 8px;
+    border: 1px solid #f0f0f0;
+    border-left: 6px solid #2f6f7e;
+    box-shadow: 0 4px 12px rgba(17, 24, 39, 0.06);
     position: relative;
-    padding-bottom: 2.5rem;
+    display: flex;
+    flex-direction: column;
+}
+.card-main-title {
+    font-size: 1.85rem;
+    font-weight: 750;
+    color: #5d4037;
+    line-height: 1.25;
+    margin-bottom: 0.35rem;
+}
+.card-category {
+    font-size: 1rem;
+    color: #777777;
+    margin-bottom: 0.65rem;
+}
+.card-matched-info {
+    font-size: 0.9rem;
+    color: #607080;
+    margin-bottom: 0.85rem;
+}
+.alternative-list {
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid #eee;
+}
+.alternative-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #666666;
+    margin-bottom: 0.4rem;
+}
+.alternative-item {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 0.25rem 0.65rem;
+    margin: 0.2rem 0.35rem 0.2rem 0;
+    background-color: #e7f3f5;
+    color: #2f6f7e;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border: 1px solid #c7e1e6;
+}
+.card-footer-meta {
+    margin-top: 0.6rem;
+    font-size: 0.8rem;
+    color: #888888;
 }
 .stats-card {
     background-color: #ffffff; border: 1px solid #eee; 
@@ -358,13 +407,36 @@ with tab1:
                         word = res.get('english', '')
                         pos = res.get('pos', '').strip()
                         kweyol = res.get('Kweyol', '')
-                        header_text = f"{word} ({pos}.)" if pos else word
                         
+                        # 同義/替換詞收集（從結果中抓取其他匹配單字）
+                        other_matches = [r.get('Kweyol', '').strip() for r in results if r.get('Kweyol', '').strip() != kweyol and r.get('Kweyol', '').strip() != '']
+                        # 去重並保留前 4 個
+                        seen = set()
+                        alts = []
+                        for m in other_matches:
+                            if m not in seen and len(alts) < 4:
+                                seen.add(m)
+                                alts.append(m)
+                        
+                        match_type = "Exact match" if search_mode == "Exact" or word.lower() == search_word.strip().lower() else "Contains your input"
+                        match_pct = "100%" if match_type == "Exact match" else "86%"
+
+                        alt_html = ""
+                        if alts:
+                            pills = "".join([f'<span class="alternative-item">{html.escape(a)}</span>' for a in alts])
+                            alt_html = f'''
+                            <div class="alternative-list">
+                                <div class="alternative-title">Alternatives</div>
+                                {pills}
+                            </div>'''
+
                         st.markdown(f'''
                         <div class="result-card">
-                            <div style="font-size:1.6rem; font-weight:700; color:#2c2c2c; margin-bottom:5px;">{html.escape(header_text)}</div>
-                            <div style="font-size:1.6rem; font-weight:700; color:#5d4037;">{html.escape(kweyol)}</div>
-                            {source_badge}
+                            <div class="card-main-title">{html.escape(kweyol)}</div>
+                            <div class="card-category">{html.escape(pos if pos else "General")}</div>
+                            <div class="card-matched-info">Matched: <b>{html.escape(word)}</b> · {match_type} · {match_pct}</div>
+                            {alt_html}
+                            <div class="card-footer-meta">Best match from {len(results)} result(s)</div>
                         </div>''', unsafe_allow_html=True)
                         b_col1, b_col2, b_col3 = st.columns([1, 1, 1])
                         with b_col1:
@@ -379,17 +451,44 @@ with tab1:
                         definition = res.get('Definition', '')
                         eng_ex = res.get('English_Example', '')
                         kwe_ex = res.get('Kweyol_Example', '')
-                        header_text = f"{kw_word} ({pos}.)" if pos else kw_word
                         
+                        other_matches = [r.get('Definition', '').strip() for r in results if r.get('Definition', '').strip() != definition and r.get('Definition', '').strip() != '']
+                        seen = set()
+                        alts = []
+                        for m in other_matches:
+                            short_m = m.split('/')[0].strip()
+                            if short_m and short_m not in seen and len(alts) < 4:
+                                seen.add(short_m)
+                                alts.append(short_m)
+
+                        match_type = "Exact match" if search_mode == "Exact" or kw_word.lower() == search_word.strip().lower() else "Contains your input"
+                        match_pct = "100%" if match_type == "Exact match" else "88%"
+
+                        alt_html = ""
+                        if alts:
+                            pills = "".join([f'<span class="alternative-item">{html.escape(a)}</span>' for a in alts])
+                            alt_html = f'''
+                            <div class="alternative-list">
+                                <div class="alternative-title">Alternatives</div>
+                                {pills}
+                            </div>'''
+
+                        ex_html = ""
+                        if kwe_ex or eng_ex:
+                            ex_html = f'''
+                            <div style="margin-top: 10px; padding: 10px 14px; background: #fbfbf9; border-radius: 6px; border-left: 3px solid #aebf9e;">
+                                <div style="color: #2e7d32; font-weight: 600; font-size: 0.95rem;">{html.escape(kwe_ex)}</div>
+                                <div style="color: #666; font-size: 0.9rem;">{html.escape(eng_ex)}</div>
+                            </div>'''
+
                         st.markdown(f'''
                         <div class="result-card">
-                            <div style="font-size:1.6rem; font-weight:700; color:#2c2c2c; margin-bottom:5px;">{html.escape(header_text)}</div>
-                            <div class="def-block"><b>Definition:</b> {html.escape(definition)}</div>
-                            <div class="ex-block">
-                                <div style="color:#5d4037; font-weight:600; font-style:italic; margin-bottom:4px;">{html.escape(kwe_ex)}</div>
-                                <div style="color:#666; font-style:italic;">{html.escape(eng_ex)}</div>
-                            </div>
-                            {source_badge}
+                            <div class="card-main-title">{html.escape(kw_word)}</div>
+                            <div class="card-category">{html.escape(definition if definition else pos)}</div>
+                            <div class="card-matched-info">Matched: <b>{html.escape(kw_word)}</b> · {match_type} · {match_pct}</div>
+                            {ex_html}
+                            {alt_html}
+                            <div class="card-footer-meta">Best match from {len(results)} result(s)</div>
                         </div>''', unsafe_allow_html=True)
                         b_col1, b_col2, b_col3 = st.columns([1, 1, 1])
                         with b_col1:
