@@ -242,17 +242,21 @@ def generate_kweyol_audio(text: str):
         return None
 
 def tts_button(text: str, btn_key: str):
-    """Play Kwéyòl pronunciation with audio synthesis"""
+    """Play Kwéyòl pronunciation with audio synthesis (directly plays sound without visible player)"""
     if st.button("🔊 Kwéyòl", key=btn_key, help=f"Listen in Kwéyòl: {text}"):
         with st.spinner("Generating Kwéyòl audio..."):
             audio_bytes = generate_kweyol_audio(text)
         if audio_bytes:
-            st.audio(audio_bytes, format="audio/wav", autoplay=True)
+            b64_audio = base64.b64encode(audio_bytes).decode()
+            st.markdown(
+                f'''<audio autoplay style="display:none;"><source src="data:audio/wav;base64,{b64_audio}" type="audio/wav"></audio>''',
+                unsafe_allow_html=True
+            )
         else:
             st.warning("⚠️ Pronunciation model is not ready. Please verify torch and transformers.")
 
 def english_tts_button(text: str, btn_key: str):
-    """Play English pronunciation via Google TTS (gTTS)"""
+    """Play English pronunciation via Google TTS (directly plays sound without visible player)"""
     import re
     from gtts import gTTS
     # Remove part-of-speech tags like (n.) (v.) etc.
@@ -269,7 +273,11 @@ def english_tts_button(text: str, btn_key: str):
                 tts = gTTS(text=clean, lang='en', tld='com')
                 tts.write_to_fp(fp)
                 fp.seek(0)
-                st.audio(fp.read(), format="audio/mp3", autoplay=True)
+                b64_audio = base64.b64encode(fp.read()).decode()
+                st.markdown(
+                    f'''<audio autoplay style="display:none;"><source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3"></audio>''',
+                    unsafe_allow_html=True
+                )
             except Exception as e:
                 st.error("Audio generation failed. Please check internet connection.")
 
