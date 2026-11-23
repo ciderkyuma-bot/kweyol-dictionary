@@ -28,22 +28,6 @@ st.set_page_config(
 # --- CSS 樣式 ---
 st.markdown('''
 <style>
-/* 隱藏原生音訊控制條，但保留自動播放行為 */
-.hidden-audio-player {
-    display: none !important;
-    height: 0px !important;
-    margin: 0px !important;
-    padding: 0px !important;
-}
-.hidden-audio-player audio {
-    display: none !important;
-}
-div[data-testid="stAudio"]:has(audio) {
-    display: none !important;
-    height: 0px !important;
-    margin: 0px !important;
-    padding: 0px !important;
-}
 .stApp { background-color: #fcfbf9; font-family: "Segoe UI", "Helvetica Neue", sans-serif; }
 h1, h2, h3 { color: #2c2c2c !important; font-weight: 700; }
 p, div, label, span { color: #333333; }
@@ -257,18 +241,34 @@ def generate_kweyol_audio(text: str):
         return None
 
 def tts_button(text: str, btn_key: str):
-    """Play Kwéyòl pronunciation with audio synthesis (directly plays sound without visible player, supports repeated clicks)"""
+    """Play Kwéyòl pronunciation with audio synthesis (direct invisible JS playback, supports unlimited repeat clicks)"""
     if st.button("🔊 Kwéyòl", key=btn_key, help=f"Listen in Kwéyòl: {text}"):
         with st.spinner("Generating Kwéyòl audio..."):
             audio_bytes = generate_kweyol_audio(text)
         if audio_bytes:
-            # 透過 st.audio + autoplay，並配合 CSS 隱藏控制條，每次點擊都會重新掛載並觸發播放
-            st.audio(audio_bytes, format="audio/wav", autoplay=True)
+            b64_audio = base64.b64encode(audio_bytes).decode()
+            import streamlit.components.v1 as components
+            # 透過隨機 timestamp 建立獨立 Audio 實例直接在前端播放，絕不產生任何可見控制條
+            ts = datetime.datetime.now().timestamp()
+            components.html(
+                f'''<script>
+                (function() {{
+                    try {{
+                        var snd = new Audio("data:audio/wav;base64,{b64_audio}?t={ts}");
+                        snd.play().catch(function(e){{ console.log(e); }});
+                    }} catch(err) {{
+                        console.error(err);
+                    }}
+                }})();
+                </script>''',
+                height=0,
+                width=0
+            )
         else:
             st.warning("⚠️ Pronunciation model is not ready. Please verify torch and transformers.")
 
 def english_tts_button(text: str, btn_key: str):
-    """Play English pronunciation via Google TTS (directly plays sound without visible player, supports repeated clicks)"""
+    """Play English pronunciation via Google TTS (direct invisible JS playback, supports unlimited repeat clicks)"""
     import re
     from gtts import gTTS
     # Remove part-of-speech tags like (n.) (v.) etc.
@@ -285,7 +285,23 @@ def english_tts_button(text: str, btn_key: str):
                 tts = gTTS(text=clean, lang='en', tld='com')
                 tts.write_to_fp(fp)
                 fp.seek(0)
-                st.audio(fp.read(), format="audio/mp3", autoplay=True)
+                b64_audio = base64.b64encode(fp.read()).decode()
+                import streamlit.components.v1 as components
+                ts = datetime.datetime.now().timestamp()
+                components.html(
+                    f'''<script>
+                    (function() {{
+                        try {{
+                            var snd = new Audio("data:audio/mp3;base64,{b64_audio}?t={ts}");
+                            snd.play().catch(function(e){{ console.log(e); }});
+                        }} catch(err) {{
+                            console.error(err);
+                        }}
+                    }})();
+                    </script>''',
+                    height=0,
+                    width=0
+                )
             except Exception as e:
                 st.error("Audio generation failed. Please check internet connection.")
 
