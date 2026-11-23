@@ -28,7 +28,22 @@ st.set_page_config(
 # --- CSS 樣式 ---
 st.markdown('''
 <style>
-/* 1. 全域背景與字體 */
+/* 隱藏原生音訊控制條，但保留自動播放行為 */
+.hidden-audio-player {
+    display: none !important;
+    height: 0px !important;
+    margin: 0px !important;
+    padding: 0px !important;
+}
+.hidden-audio-player audio {
+    display: none !important;
+}
+div[data-testid="stAudio"]:has(audio) {
+    display: none !important;
+    height: 0px !important;
+    margin: 0px !important;
+    padding: 0px !important;
+}
 .stApp { background-color: #fcfbf9; font-family: "Segoe UI", "Helvetica Neue", sans-serif; }
 h1, h2, h3 { color: #2c2c2c !important; font-weight: 700; }
 p, div, label, span { color: #333333; }
@@ -242,21 +257,18 @@ def generate_kweyol_audio(text: str):
         return None
 
 def tts_button(text: str, btn_key: str):
-    """Play Kwéyòl pronunciation with audio synthesis (directly plays sound without visible player)"""
+    """Play Kwéyòl pronunciation with audio synthesis (directly plays sound without visible player, supports repeated clicks)"""
     if st.button("🔊 Kwéyòl", key=btn_key, help=f"Listen in Kwéyòl: {text}"):
         with st.spinner("Generating Kwéyòl audio..."):
             audio_bytes = generate_kweyol_audio(text)
         if audio_bytes:
-            b64_audio = base64.b64encode(audio_bytes).decode()
-            st.markdown(
-                f'''<audio autoplay style="display:none;"><source src="data:audio/wav;base64,{b64_audio}" type="audio/wav"></audio>''',
-                unsafe_allow_html=True
-            )
+            # 透過 st.audio + autoplay，並配合 CSS 隱藏控制條，每次點擊都會重新掛載並觸發播放
+            st.audio(audio_bytes, format="audio/wav", autoplay=True)
         else:
             st.warning("⚠️ Pronunciation model is not ready. Please verify torch and transformers.")
 
 def english_tts_button(text: str, btn_key: str):
-    """Play English pronunciation via Google TTS (directly plays sound without visible player)"""
+    """Play English pronunciation via Google TTS (directly plays sound without visible player, supports repeated clicks)"""
     import re
     from gtts import gTTS
     # Remove part-of-speech tags like (n.) (v.) etc.
@@ -273,11 +285,7 @@ def english_tts_button(text: str, btn_key: str):
                 tts = gTTS(text=clean, lang='en', tld='com')
                 tts.write_to_fp(fp)
                 fp.seek(0)
-                b64_audio = base64.b64encode(fp.read()).decode()
-                st.markdown(
-                    f'''<audio autoplay style="display:none;"><source src="data:audio/mp3;base64,{b64_audio}" type="audio/mp3"></audio>''',
-                    unsafe_allow_html=True
-                )
+                st.audio(fp.read(), format="audio/mp3", autoplay=True)
             except Exception as e:
                 st.error("Audio generation failed. Please check internet connection.")
 
