@@ -28,6 +28,7 @@ st.set_page_config(
 # --- CSS 樣式 ---
 st.markdown('''
 <style>
+/* 1. 全域背景與字體 */
 .stApp { background-color: #fcfbf9; font-family: "Segoe UI", "Helvetica Neue", sans-serif; }
 h1, h2, h3 { color: #2c2c2c !important; font-weight: 700; }
 p, div, label, span { color: #333333; }
@@ -166,9 +167,13 @@ div.stButton > button {
     display: inline-block;
 }
 /* 9. 國旗小圖示 */
-.flag-icon {
-    height: 1em; width: auto; vertical-align: text-bottom;
-    margin-right: 5px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-radius: 2px;
+/* 10. 完全隱藏 Streamlit 原生音訊播放條，保留音訊自動播放功能 */
+div[data-testid="stAudio"] {
+    display: none !important;
+    height: 0px !important;
+    margin: 0px !important;
+    padding: 0px !important;
+    overflow: hidden !important;
 }
 </style>
 ''', unsafe_allow_html=True)
@@ -241,43 +246,32 @@ def generate_kweyol_audio(text: str):
         return None
 
 def tts_button(text: str, btn_key: str):
-    """Play Kwéyòl pronunciation with audio synthesis (direct invisible JS playback, supports unlimited repeat clicks)"""
+    """Play Kwéyòl pronunciation (native stream with autoplay and zero visible bar)"""
+    state_key = f"play_kw_{btn_key}"
     if st.button("🔊 Kwéyòl", key=btn_key, help=f"Listen in Kwéyòl: {text}"):
         with st.spinner("Generating Kwéyòl audio..."):
             audio_bytes = generate_kweyol_audio(text)
         if audio_bytes:
-            b64_audio = base64.b64encode(audio_bytes).decode()
-            import streamlit.components.v1 as components
-            # 透過隨機 timestamp 建立獨立 Audio 實例直接在前端播放，絕不產生任何可見控制條
-            ts = datetime.datetime.now().timestamp()
-            components.html(
-                f'''<script>
-                (function() {{
-                    try {{
-                        var snd = new Audio("data:audio/wav;base64,{b64_audio}?t={ts}");
-                        snd.play().catch(function(e){{ console.log(e); }});
-                    }} catch(err) {{
-                        console.error(err);
-                    }}
-                }})();
-                </script>''',
-                height=0,
-                width=0
-            )
+            # 存入 session_state，附帶 timestamp 讓每次點擊都是全新觸發
+            st.session_state[state_key] = (audio_bytes, datetime.datetime.now().timestamp())
         else:
             st.warning("⚠️ Pronunciation model is not ready. Please verify torch and transformers.")
+    
+    # 只要當前按鈕有觸發音訊，就透過 st.audio 播放（外層已被 CSS 全域隱藏）
+    if state_key in st.session_state:
+        current_audio, _ = st.session_state[state_key]
+        st.audio(current_audio, format="audio/wav", autoplay=True)
 
 def english_tts_button(text: str, btn_key: str):
-    """Play English pronunciation via Google TTS (direct invisible JS playback, supports unlimited repeat clicks)"""
+    """Play English pronunciation (native stream with autoplay and zero visible bar)"""
     import re
     from gtts import gTTS
-    # Remove part-of-speech tags like (n.) (v.) etc.
     clean = re.sub(r'\([^)]*\)', '', text).strip()
-    # Take first semantic segment before slash or semicolon
     clean = re.split(r'[/;]', clean)[0].strip()
     if not clean:
         clean = text.strip()
 
+    state_key = f"play_en_{btn_key}"
     if st.button("🔊 English", key=btn_key, help=f"Listen in English: {clean}"):
         with st.spinner("Generating English audio..."):
             try:
@@ -285,25 +279,13 @@ def english_tts_button(text: str, btn_key: str):
                 tts = gTTS(text=clean, lang='en', tld='com')
                 tts.write_to_fp(fp)
                 fp.seek(0)
-                b64_audio = base64.b64encode(fp.read()).decode()
-                import streamlit.components.v1 as components
-                ts = datetime.datetime.now().timestamp()
-                components.html(
-                    f'''<script>
-                    (function() {{
-                        try {{
-                            var snd = new Audio("data:audio/mp3;base64,{b64_audio}?t={ts}");
-                            snd.play().catch(function(e){{ console.log(e); }});
-                        }} catch(err) {{
-                            console.error(err);
-                        }}
-                    }})();
-                    </script>''',
-                    height=0,
-                    width=0
-                )
+                st.session_state[state_key] = (fp.read(), datetime.datetime.now().timestamp())
             except Exception as e:
                 st.error("Audio generation failed. Please check internet connection.")
+                
+    if state_key in st.session_state:
+        current_audio, _ = st.session_state[state_key]
+        st.audio(current_audio, format="audio/mp3", autoplay=True)
 
 def get_alternatives_e2k(target_word, target_kweyol, pos, df_e2k):
     """Find smart alternative words for English -> Kweyol search"""
