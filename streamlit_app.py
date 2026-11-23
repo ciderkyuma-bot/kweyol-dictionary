@@ -167,12 +167,25 @@ div.stButton > button {
     display: inline-block;
 }
 /* 9. 國旗小圖示 */
-/* 10. 完全隱藏 Streamlit 原生音訊播放條，保留音訊自動播放功能 */
-div[data-testid="stAudio"] {
+/* 10. 完全隱藏 Streamlit 原生音訊播放條與其外層容器，保留音訊自動播放功能 */
+audio,
+audio[data-testid="stAudio"],
+.stAudio,
+div:has(> .stAudio),
+div:has(> audio),
+div[data-testid="stElementContainer"]:has(audio),
+div[data-testid="stElementContainer"]:has(.stAudio) {
     display: none !important;
     height: 0px !important;
+    min-height: 0px !important;
+    max-height: 0px !important;
     margin: 0px !important;
     padding: 0px !important;
+    border: none !important;
+    outline: none !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
     overflow: hidden !important;
 }
 </style>
