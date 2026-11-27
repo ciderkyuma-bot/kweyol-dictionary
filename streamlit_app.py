@@ -16,7 +16,6 @@ from st_copy_to_clipboard import st_copy_to_clipboard
 
 # 引入核心功能
 from main import load_databases, fast_query, search_examples, analyze_database_stats, run_lego_translation
-from game_module import render_game_tab
 
 # 頁面設定
 st.set_page_config(
@@ -168,6 +167,70 @@ div.stButton > button {
     display: inline-block;
 }
 /* 9. 國旗小圖示 */
+/* 11. 遊戲專用樣式 (Game UI) */
+.game-container {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 28px 32px;
+    box-shadow: 0 10px 30px rgba(47, 111, 126, 0.08);
+    border: 1px solid #eef2f5;
+    margin-bottom: 24px;
+}
+.game-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    background-color: #e7f3f5;
+    color: #2f6f7e;
+    margin-bottom: 12px;
+}
+.game-score-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    background: #fff8e1;
+    color: #b78103;
+    border: 1px solid #ffe082;
+}
+.game-card-question {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #2f6f7e;
+    margin: 8px 0 16px 0;
+    line-height: 1.2;
+}
+.game-streak-fire {
+    color: #e65100;
+    font-weight: 800;
+}
+.game-feedback-correct {
+    background: #e8f5e9;
+    border-left: 5px solid #2e7d32;
+    padding: 14px 18px;
+    border-radius: 8px;
+    color: #1b5e20;
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin: 14px 0;
+}
+.game-feedback-wrong {
+    background: #ffebee;
+    border-left: 5px solid #c62828;
+    padding: 14px 18px;
+    border-radius: 8px;
+    color: #b71c1c;
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin: 14px 0;
+}
 /* 10. 完全隱藏 Streamlit 原生音訊播放條與其外層容器，保留音訊自動播放功能 */
 audio,
 audio[data-testid="stAudio"],
@@ -378,8 +441,7 @@ with st.sidebar:
         1. **Dictionary**: Lookup.
         2. **Phrase Finder**: Examples.
         3. **Beta Translation**: Sentence Builder.
-        4. **🎮 Learn & Play**: Interactive Kwéyòl Arcade.
-        5. **Dashboard**: Stats.
+        4. **Dashboard**: Stats.
         """)
 
     with st.expander("🛠️ Update Log", expanded=False):
@@ -414,7 +476,7 @@ with col_header_R:
     """, unsafe_allow_html=True)
 
 # 7 個分頁
-tab1, tab2, tab3, tab_game, tab4, tab5, tab6 = st.tabs(["Dictionary", "Phrase Finder", "Beta Translation", "🎮 Learn & Play", "Dashboard", "About Kwéyòl", "About Developer"])
+tab1, tab2, tab3, tab4, tab_game, tab5, tab6 = st.tabs(["Dictionary", "Phrase Finder", "Beta Translation", "Dashboard", "🎮 Play & Learn", "About Kwéyòl", "About Developer"])
 
 # === Tab 1: Dictionary ===
 with tab1:
@@ -595,10 +657,6 @@ with tab3:
         st_copy_to_clipboard(final, before_copy_label="📋 Copy", after_copy_label="✅ Copied!")
         tts_button(final, btn_key="tts_translation")
 
-# === Tab Game: Kwéyòl Island Arcade ===
-with tab_game:
-    render_game_tab(databases, generate_kweyol_audio)
-
 # === Tab 4: Dashboard ===
 with tab4:
     st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
@@ -669,6 +727,158 @@ with tab4:
         if stats['alpha_eng']:
             df_alpha = pd.DataFrame({'English': stats['alpha_eng'], 'Kwéyòl': stats['alpha_kwe']})
             st.line_chart(df_alpha, color=["#888888", "#aebf9e"])
+
+# === Tab Game: Play & Learn ===
+with tab_game:
+    st.markdown("<div style='height:15px'></div>", unsafe_allow_html=True)
+    
+    # 遊戲狀態初始化
+    if 'game_score' not in st.session_state:
+        st.session_state.game_score = 0
+    if 'game_streak' not in st.session_state:
+        st.session_state.game_streak = 0
+    if 'game_total' not in st.session_state:
+        st.session_state.game_total = 0
+    if 'game_feedback' not in st.session_state:
+        st.session_state.game_feedback = None
+    if 'current_question' not in st.session_state:
+        st.session_state.current_question = None
+
+    # 出題函式
+    def generate_new_question():
+        df_e2k = databases.get('e2k_data', pd.DataFrame())
+        if df_e2k.empty:
+            return None
+        valid_df = df_e2k[
+            (df_e2k['english'].astype(str).str.len() > 1) & 
+            (df_e2k['Kweyol'].astype(str).str.len() > 1) &
+            (~df_e2k['english'].astype(str).str.contains(r'\(|\.|\?|,', regex=True))
+        ]
+        if len(valid_df) < 10:
+            valid_df = df_e2k
+            
+        target_row = valid_df.sample(n=1).iloc[0]
+        correct_eng = str(target_row['english']).strip()
+        correct_kwe = str(target_row['Kweyol']).strip().split(',')[0].strip()
+        pos = str(target_row.get('pos', 'Word')).strip()
+        if not pos or pos == 'nan':
+            pos = 'General'
+
+        # 抽 3 個誘答選項
+        distractors = valid_df[valid_df['english'].str.lower() != correct_eng.lower()]
+        distractor_opts = distractors.sample(n=min(3, len(distractors)))['english'].str.strip().tolist()
+        
+        options = [correct_eng] + distractor_opts
+        random.shuffle(options)
+        
+        return {
+            'kweyol': correct_kwe,
+            'correct_english': correct_eng,
+            'pos': pos,
+            'options': options,
+            'answered': False,
+            'selected': None,
+            'is_correct': False
+        }
+
+    # 首次載入出題
+    if st.session_state.current_question is None:
+        st.session_state.current_question = generate_new_question()
+
+    q = st.session_state.current_question
+
+    # 頂部狀態列
+    top_c1, top_c2, top_c3 = st.columns([2, 1, 1])
+    with top_c1:
+        st.markdown('<div class="game-badge">🎮 Mini Game · Sound & Vocabulary Safari</div>', unsafe_allow_html=True)
+    with top_c2:
+        st.markdown(f'<div class="game-score-pill">⭐ Score: {st.session_state.game_score} / {st.session_state.game_total}</div>', unsafe_allow_html=True)
+    with top_c3:
+        st.markdown(f'<div class="game-score-pill"><span class="game-streak-fire">🔥</span> Streak: {st.session_state.game_streak}</div>', unsafe_allow_html=True)
+
+    if q is None:
+        st.info("Loading dictionary resources... Please ensure database is loaded.")
+    else:
+        st.markdown(f"""
+        <div class="game-container">
+            <div style="font-size:0.9rem; color:#777; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;">
+                Category: <b>{html.escape(q['pos'])}</b>
+            </div>
+            <div class="game-card-question">{html.escape(q['kweyol'])}</div>
+            <p style="color:#555; font-size:1.05rem; margin-bottom:12px;">
+                Listen to the Kwéyòl pronunciation and choose the correct English meaning:
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # 聆聽發音按鈕
+        col_audio, col_skip = st.columns([2, 1])
+        with col_audio:
+            tts_button(q['kweyol'], btn_key="game_tts_btn")
+        with col_skip:
+            if st.button("⏭️ Next Word", key="game_skip_btn", use_container_width=True):
+                st.session_state.current_question = generate_new_question()
+                st.session_state.game_feedback = None
+                st.rerun()
+
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+        # 2x2 選項排版
+        row1_c1, row1_c2 = st.columns(2)
+        row2_c1, row2_c2 = st.columns(2)
+        cols = [row1_c1, row1_c2, row2_c1, row2_c2]
+
+        def on_answer_click(chosen_opt):
+            if not q['answered']:
+                q['answered'] = True
+                q['selected'] = chosen_opt
+                st.session_state.game_total += 1
+                if chosen_opt.lower() == q['correct_english'].lower():
+                    q['is_correct'] = True
+                    st.session_state.game_score += 10
+                    st.session_state.game_streak += 1
+                    praise_words = ["Bon travay! (Great job!)", "Mèpwi! (Awesome!)", "Eksélan! (Excellent!)", "Bravo!"]
+                    st.session_state.game_feedback = {
+                        'type': 'correct',
+                        'msg': f"🎉 {random.choice(praise_words)} Correct! '<b>{q['kweyol']}</b>' means '<b>{q['correct_english']}</b>'."
+                    }
+                else:
+                    q['is_correct'] = False
+                    st.session_state.game_streak = 0
+                    st.session_state.game_feedback = {
+                        'type': 'wrong',
+                        'msg': f"❌ Pa dekouradje! '<b>{q['kweyol']}</b>' means '<b>{q['correct_english']}</b>'."
+                    }
+
+        for idx, opt in enumerate(q['options']):
+            with cols[idx]:
+                btn_type = "secondary"
+                if q['answered']:
+                    if opt.lower() == q['correct_english'].lower():
+                        btn_label = f"✅ {opt}"
+                    elif opt == q['selected']:
+                        btn_label = f"❌ {opt}"
+                    else:
+                        btn_label = opt
+                else:
+                    btn_label = opt
+                    
+                if st.button(btn_label, key=f"game_opt_{idx}", use_container_width=True, disabled=q['answered']):
+                    on_answer_click(opt)
+                    st.rerun()
+
+        # 反饋與下一題按鈕
+        if st.session_state.game_feedback:
+            fb = st.session_state.game_feedback
+            if fb['type'] == 'correct':
+                st.markdown(f'<div class="game-feedback-correct">{fb["msg"]}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="game-feedback-wrong">{fb["msg"]}</div>', unsafe_allow_html=True)
+
+            if st.button("🚀 Continue to Next Word", key="game_continue_btn", type="primary", use_container_width=True):
+                st.session_state.current_question = generate_new_question()
+                st.session_state.game_feedback = None
+                st.rerun()
 
 # === Tab 5: About Kwéyòl ===
 with tab5:
