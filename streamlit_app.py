@@ -16,6 +16,7 @@ from st_copy_to_clipboard import st_copy_to_clipboard
 
 # 引入核心功能
 from main import load_databases, fast_query, search_examples, analyze_database_stats, run_lego_translation
+from game_module import render_game_tab
 
 # 頁面設定
 st.set_page_config(
@@ -377,7 +378,8 @@ with st.sidebar:
         1. **Dictionary**: Lookup.
         2. **Phrase Finder**: Examples.
         3. **Beta Translation**: Sentence Builder.
-        4. **Dashboard**: Stats.
+        4. **🎮 Learn & Play**: Interactive Kwéyòl Arcade.
+        5. **Dashboard**: Stats.
         """)
 
     with st.expander("🛠️ Update Log", expanded=False):
@@ -411,8 +413,8 @@ with col_header_R:
     </div>
     """, unsafe_allow_html=True)
 
-# 6 個分頁
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Dictionary", "Phrase Finder", "Beta Translation", "Dashboard", "About Kwéyòl", "About Developer"])
+# 7 個分頁
+tab1, tab2, tab3, tab_game, tab4, tab5, tab6 = st.tabs(["Dictionary", "Phrase Finder", "Beta Translation", "🎮 Learn & Play", "Dashboard", "About Kwéyòl", "About Developer"])
 
 # === Tab 1: Dictionary ===
 with tab1:
@@ -592,6 +594,10 @@ with tab3:
         ''', unsafe_allow_html=True)
         st_copy_to_clipboard(final, before_copy_label="📋 Copy", after_copy_label="✅ Copied!")
         tts_button(final, btn_key="tts_translation")
+
+# === Tab Game: Kwéyòl Island Arcade ===
+with tab_game:
+    render_game_tab(databases, generate_kweyol_audio)
 
 # === Tab 4: Dashboard ===
 with tab4:
